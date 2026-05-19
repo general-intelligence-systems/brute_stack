@@ -15,6 +15,4 @@ Open <https://localhost>, accept the self-signed cert, and sign in:
 
 Two chats are waiting: one with `@brute:localhost`, one with `@echo:localhost`.
 
-## Setup
-
 <video src="assets/setup-video.mp4" width="320" height="240" controls></video>
