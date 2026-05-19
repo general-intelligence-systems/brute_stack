@@ -1,0 +1,158 @@
+# frozen_string_literal: true
+
+require "bundler/setup"
+require "opentelemetry/sdk"
+require "opentelemetry/exporter/otlp"
+require "scampi"
+require "brute"
+require "a2a"
+require "a2a/middleware"
+require "console"
+require "securerandom"
+require "yaml"
+require "async/semaphore"
+
+class SteeringCheck
+  def initialize(app, queue:, context_id:, lock:)
+    @app = app
+    @queue = queue
+    @context_id = context_id
+    @lock = lock
+  end
+
+  def call(env)
+    @lock.acquire do
+      queue  = @queue[@context_id] || []
+      length = @queue[@context_id]&.length || 0
+
+      queue.shift(length).each do |text|
+        env[:messages].user(text)
+      end
+    end
+
+    @app.call(env)
+  end
+end
+
+agent_card = YAML.safe_load_file(File.join(__dir__, "agent_card.yml"))
+
+Brute.provider = :ollama
+Brute.config.ollama_api_base = ENV.fetch("OLLAMA_API_BASE", "http://localhost:11434/v1")
+
+# Fetch available models from the Ollama server so the registry knows about them
+RubyLLM.models.refresh!
+
+LOCK = Async::Semaphore.new(1)
+STEERING_QUEUE = {}
+RUNNING = {}
+
+agent = A2A::Agent.new do
+  on "SendMessage" do
+    use A2A::Middleware::ExtractMessage
+
+    respond_with -> (env) {
+      request    = env["a2a.request"]
+      text       = env["a2a.message"]
+      context_id = request.message.context_id
+      context_id = context_id.to_s.empty? ? SecureRandom.uuid : context_id
+      task_id    = SecureRandom.uuid
+
+      Console.info(self) { "SendMessage Received: #{text}" }
+
+      push_url = request.configuration.task_push_notification_config.url
+
+      push_notification_callback = -> (context_id:, task_id:, state:, artifact: nil, error: nil) {
+        Faraday.post(push_url) do |req|
+          req.headers["content-type"] = "application/json"
+          req.body = JSON.generate(
+            task: {
+              id: task_id,
+              contextId: context_id,
+              status: {
+                state: state,
+                timestamp: Time.now.utc.iso8601(3),
+              },
+              artifacts: artifact && [
+                {
+                  artifactId: SecureRandom.uuid,
+                  name: "becky-response",
+                  parts: [{ text: artifact }],
+                }
+              ],
+              metadata: error && { error: error },
+            }.compact
+          )
+        end
+      }
+
+      LOCK.acquire do
+        STEERING_QUEUE[context_id] ||= []
+        STEERING_QUEUE[context_id] << text
+      
+        RUNNING[context_id] ||= Async do
+          begin
+            llm = Brute::Agent.new(
+              provider: :ollama,
+              model:    "llama3.2:latest",
+              tools:    [],
+            ) do
+              use Brute::Middleware::SystemPrompt
+              use SteeringCheck,
+                queue: STEERING_QUEUE,
+                context_id: context_id,
+                lock: LOCK
+      
+              run Brute::Middleware::LLMCall.new
+            end
+      
+            Brute::Session.new(path: "/app/sessions/#{context_id}").then do |session|
+              llm.call(session)
+      
+              push_notification_callback.call(
+                context_id: context_id,
+                task_id: task_id,
+                state: "TASK_STATE_COMPLETED",
+                artifact: session.last.content,
+              )
+            end
+          rescue => error
+            push_notification_callback.call(
+              context_id: context_id,
+              task_id: task_id,
+              state: "TASK_STATE_FAILED",
+              error: error.message,
+            )
+          ensure
+            LOCK.acquire do
+              RUNNING.delete(context_id)
+              STEERING_QUEUE.delete(context_id)
+            end
+          end
+        end
+      end
+
+      A2A::Schema["Send Message Response"].new(
+        task: {
+          id:         task_id,
+          context_id: context_id,
+          status: {
+            state: "TASK_STATE_SUBMITTED",
+            timestamp: Time.now.utc.iso8601(3)
+          },
+        }
+      )
+    }
+  end
+end
+
+app = A2A::Server.new(agent_card: agent_card)
+app.register(agent)
+
+OpenTelemetry::SDK.configure do |c|
+  c.service_name = ENV.fetch("OTEL_SERVICE_NAME", "agent-becky")
+end
+
+Console.info(self) { "Becky Agent starting..." }
+Console.info(self) { "Agent card: #{agent_card["name"]}" }
+
+run app

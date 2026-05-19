@@ -1,0 +1,13 @@
+id: agent-echo
+url: "http://echo:5000"
+as_token: "4b6a331886e4a0ab10ccc81a49ed143d50526f0ba1e4fd7f96c0dd9f703b142f"
+hs_token: "6e50f4b844d3bda357c1862748bd6397acac5995c3200e59a784b600e7cf85b3"
+sender_localpart: echo
+namespaces:
+  users:
+    - exclusive: true
+      regex: "@echo:localhost"
+  rooms: []
+  aliases: []
+rate_limited: false
+push_ephemeral: false

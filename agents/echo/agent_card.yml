@@ -1,0 +1,14 @@
+name: Echo Bot
+description: Says back whatever you say to it.
+version: "1.0.0"
+defaultInputModes:
+  - text/plain
+defaultOutputModes:
+  - text/plain
+skills:
+  - id: echo
+    name: Echo
+    description: Echoes user messages back as task artifacts.
+    tags:
+      - echo
+      - test

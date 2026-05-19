@@ -1,0 +1,13 @@
+id: agent-brute
+url: "http://brute:5000"
+as_token: "dc7c02c16b69ad43c09113eaaca8f461b6bac41b018e96ce5a84100940988465"
+hs_token: "7f641d9ea6752b6d8f9aa5bed25d901792f70a26f41e364c319807a4dc77cfc9"
+sender_localpart: brute
+namespaces:
+  users:
+    - exclusive: true
+      regex: "@brute:localhost"
+  rooms: []
+  aliases: []
+rate_limited: false
+push_ephemeral: false

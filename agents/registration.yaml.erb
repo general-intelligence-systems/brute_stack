@@ -1,0 +1,13 @@
+id: agent-<%= agent_name %>
+url: "http://agent-<%= agent_name %>.ai.svc.cluster.local:3000"
+as_token: "<%= as_token %>"
+hs_token: "<%= hs_token %>"
+sender_localpart: <%= agent_name %>
+namespaces:
+  users:
+    - exclusive: true
+      regex: "@<%= agent_name %>:chat\\.kremlin\\.email"
+  rooms: []
+  aliases: []
+rate_limited: false
+push_ephemeral: false
