@@ -1,0 +1,11 @@
+synapse/homeserver.db
+synapse/homeserver.db-shm
+synapse/homeserver.db-wal
+synapse/media_store/
+
+.direnv
+.gem
+
+# vim... yes, I know, global ignores do exist...
+*.swo
+*.swp
