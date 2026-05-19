@@ -93,7 +93,7 @@ agent = A2A::Agent.new do
           begin
             llm = Brute::Agent.new(
               provider: :ollama,
-              model:    "llama3.2:latest",
+              model:    "qwen2.5:0.5b",
               tools:    [],
             ) do
               use Brute::Middleware::SystemPrompt

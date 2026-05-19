@@ -13,7 +13,8 @@ Server = Async::Matrix::ApplicationService::Server
 MatrixClient = Async::Matrix::Client
 
 AGENT_NAME = ENV.fetch("AGENT_NAME", "unknown")
-AGENT_URL  = ENV.fetch("A2A_URL", "http://localhost:9292")
+AGENT_URL  = ENV.fetch("A2A_URL", "http://localhost:4000")
+PUSH_URL   = ENV.fetch("PUSH_URL", "http://localhost:5000/_a2a/push")
 a2a_client = A2A::Client.new(AGENT_URL)
 
 bot_config = Config.new(
@@ -55,7 +56,7 @@ matrix_bot = Bot.new(MatrixClient.new(bot_config)) do
       },
       configuration: {
         "taskPushNotificationConfig" => {
-          "url" => "http://localhost:3000/_a2a/push",
+          "url" => PUSH_URL,
         }
       }
     ).then do |response|

@@ -9,3 +9,6 @@ synapse/media_store/
 # vim... yes, I know, global ignores do exist...
 *.swo
 *.swp
+
+# opencode 4 lyf
+.claude

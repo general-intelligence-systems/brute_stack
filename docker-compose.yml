@@ -82,6 +82,27 @@ services:
       - 5001:5000
       - 8081:8080
 
+  bootstrap:
+    build: ./docker/bootstrap
+    restart: "no"
+    depends_on:
+      synapse:
+        condition: service_healthy
+      brute:
+        condition: service_started
+      echo:
+        condition: service_started
+    environment:
+      SYNAPSE_URL: "http://synapse:8008"
+      REGISTRATION_SHARED_SECRET: "3pM2moO;nASlR12gSSbcVBCbxO9AFuFubCtnscHkt9xU1#G~R+"
+      HOMESERVER_DOMAIN: "localhost"
+      DEMO_USER: "demo"
+      DEMO_PASS: "demo"
+      DEMO_AGENTS: "brute echo"
+    volumes:
+      - bootstrap-state:/state
+
 volumes:
   ollama-data:
   brute-sessions:
+  bootstrap-state:
