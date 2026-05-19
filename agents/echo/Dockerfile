@@ -24,7 +24,7 @@ WORKDIR /app
 
 COPY --from=build /usr/local/lib/ruby /usr/local/lib/ruby
 COPY --from=build /usr/local/bin /usr/local/bin
-COPY falcon.rb appservice.ru health_monitor.rb ./
+COPY _common/falcon.rb _common/appservice.ru _common/health_monitor.rb ./
 COPY echo/ ./
 
 CMD ["bundle", "exec", "falcon", "host"]
