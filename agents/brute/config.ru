@@ -75,7 +75,7 @@ agent = A2A::Agent.new do
               artifacts: artifact && [
                 {
                   artifactId: SecureRandom.uuid,
-                  name: "becky-response",
+                  name: "brute-response",
                   parts: [{ text: artifact }],
                 }
               ],
@@ -149,10 +149,10 @@ app = A2A::Server.new(agent_card: agent_card)
 app.register(agent)
 
 OpenTelemetry::SDK.configure do |c|
-  c.service_name = ENV.fetch("OTEL_SERVICE_NAME", "agent-becky")
+  c.service_name = ENV.fetch("OTEL_SERVICE_NAME", "agent-brute")
 end
 
-Console.info(self) { "Becky Agent starting..." }
+Console.info(self) { "Brute Agent starting..." }
 Console.info(self) { "Agent card: #{agent_card["name"]}" }
 
 run app

@@ -10,7 +10,7 @@ RUN apt-get update -qq && \
 
 WORKDIR /app
 
-COPY assistant/Gemfile assistant/Gemfile.lock ./
+COPY brute/Gemfile brute/Gemfile.lock ./
 RUN bundle install
 
 FROM ghcr.io/ruby/ruby:latest
@@ -25,6 +25,6 @@ WORKDIR /app
 COPY --from=build /usr/local/lib/ruby /usr/local/lib/ruby
 COPY --from=build /usr/local/bin /usr/local/bin
 COPY falcon.rb appservice.ru health_monitor.rb ./
-COPY assistant/ ./
+COPY brute/ ./
 
 CMD ["bundle", "exec", "falcon", "host"]

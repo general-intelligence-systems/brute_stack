@@ -42,7 +42,7 @@ services:
   brute:
     build:
       context: ./agents
-      dockerfile: assistant/Dockerfile
+      dockerfile: brute/Dockerfile
     restart: unless-stopped
     depends_on:
       synapse:
