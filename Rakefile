@@ -44,10 +44,10 @@ namespace :generate do
       end
     end
 
-    # -- Copy Gemfile.lock from echo (identical base deps) -------------------
+    # -- Copy Gemfile.lock from brute (identical base deps) ------------------
 
     FileUtils.cp(
-      File.join(AGENTS_DIR, "echo", "Gemfile.lock"),
+      File.join(AGENTS_DIR, "brute", "Gemfile.lock"),
       File.join(AGENTS_DIR, name, "Gemfile.lock")
     )
 
@@ -82,12 +82,17 @@ namespace :generate do
       "    depends_on:",
       "      synapse:",
       "        condition: service_healthy",
+      "      ollama:",
+      "        condition: service_started",
       "    environment:",
       "      AGENT_NAME: #{name}",
       "      AS_TOKEN: \"#{as_token}\"",
       "      HS_TOKEN: \"#{hs_token}\"",
       "      HOMESERVER_ADDRESS: \"http://synapse:8008\"",
       "      HOMESERVER_DOMAIN: \"localhost\"",
+      "      OLLAMA_API_BASE: \"http://ollama:11434/v1\"",
+      "    volumes:",
+      "      - #{name}-sessions:/app/sessions",
       "    ports:",
       "      - #{next_a2a}:4000",
       "      - #{next_app}:5000",
@@ -105,6 +110,9 @@ namespace :generate do
 
     # Append to DEMO_AGENTS
     compose.sub!(/DEMO_AGENTS: "(.*?)"/) { "DEMO_AGENTS: \"#{$1} #{name}\"" }
+
+    # Add named volume
+    compose.sub!(/^(volumes:\n)/) { "#{$1}  #{name}-sessions:\n" }
 
     File.write(compose_path, compose)
 
