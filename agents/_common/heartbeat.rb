@@ -35,9 +35,9 @@ module Heartbeat
         loop do
           sleep env.interval
 
-          prompt = ERB.new(env.prompt).render_with_hash(
+          prompt = ERB.new(env.prompt).result_with_hash(
             soul: File.read(env.soul_path),
-            now: Time.now.utc.iso8601
+            time: Time.now.utc.iso8601
           )
 
           a2a_client.send_message(
