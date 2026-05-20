@@ -144,7 +144,7 @@ agent = A2A::Agent.new do
 
               push_notification_callback.call(
                 state: "TASK_STATE_COMPLETED",
-                artifact: session.last.content,
+                artifact: artifact,
               )
             rescue => error
               push_notification_callback.call(
