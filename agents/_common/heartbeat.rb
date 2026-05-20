@@ -32,7 +32,7 @@ module Heartbeat
 
         Console.info(self) { "Heartbeat ticking every #{env.interval}s" }
 
-        loop
+        loop do
           sleep env.interval
 
           prompt = ERB.new(env.prompt).render_with_hash(

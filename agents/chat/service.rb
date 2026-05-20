@@ -1,3 +1,3 @@
 #!/usr/bin/env falcon-host
 
-load File.expand_path("_common/falcon.rb", root)
+eval File.read(File.expand_path("_common/falcon.rb", root)), binding, "_common/falcon.rb"
