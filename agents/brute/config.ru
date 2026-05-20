@@ -82,7 +82,7 @@ agent = A2A::Agent.new do
         )
       }
 
-      heartbeat_failed_response = -> (artifact) {
+      heartbeat_failed_response = -> (error) {
         A2A::Schema["Send Message Response"].new(
           task: {
             id:         task_id,
