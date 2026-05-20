@@ -65,7 +65,7 @@ service "heartbeat" do
   a2a_url "http://0.0.0.0:4000"
 
   soul_path {
-    File.expand_path("../SOUL.md", root)
+    File.expand_path("SOUL.md", root)
   }
 
   prompt {
