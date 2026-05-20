@@ -38,7 +38,7 @@ agent = A2A::Agent.new do
 
       Console.info(self) { "SendMessage Received: #{text}" }
 
-      push_url = request.configuration.task_push_notification_config.url
+      push_url = request.configuration&.task_push_notification_config&.url
 
       run_llm = -> {
         llm = Brute::Agent.new(
