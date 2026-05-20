@@ -17,6 +17,28 @@ Two chats are waiting: one with `@brute:localhost`, one with `@echo:localhost`.
 
 <video src="assets/setup-video.mp4" width="320" height="240" controls></video>
 
+## LLM Model
+
+The stack ships with `qwen2.5:0.5b` pulled at build time so the first `docker compose up` just works. This is a tiny model (0.5B params) — fine for verifying the wiring but not much use for real conversation.
+
+You probably want something like `llama3.2:latest`. Pull it into the running Ollama container:
+
+```sh
+docker compose exec ollama ollama pull llama3.2
+```
+
+Then update the model name in `agents/brute/config.ru`:
+
+```ruby
+llm = Brute::Agent.new(
+  provider: :ollama,
+  model:    "llama3.2:latest",   # <-- change this
+  ...
+)
+```
+
+Rebuild brute (`docker compose up --build brute`) and you're set.
+
 ## Adding a New Agent
 
 ```sh
