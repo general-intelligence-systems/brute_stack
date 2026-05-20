@@ -5,15 +5,19 @@ require "async/service/supervisor/supervised"
 require "a2a"
 require "console"
 require "erb"
+require "faraday"
+require "json"
 require "securerandom"
 require "time"
 
 module Heartbeat
   module Environment
     def service_class = Heartbeat::Service
-    def soul_path = "" # File.expand_path("../SOUL.md", root)
+    def soul_path = ""
     def prompt = "<%= soul %>"
     def a2a_url = "http://localhost:4000"
+    def notify_url = "http://localhost:5000/_heartbeat/notify"
+    def notify_user = "@demo:localhost"
     def interval = 30 # seconds
   end
 
@@ -40,14 +44,31 @@ module Heartbeat
             time: Time.now.utc.iso8601
           )
 
-          a2a_client.send_message(
+          response = a2a_client.send_message(
             message: {
               message_id: SecureRandom.uuid,
-              context_id: "heartbeat", # this is how the A2A agent knows to behave differently
+              context_id: "heartbeat",
               role:       "ROLE_USER",
               parts:      [{ "text" => prompt }],
             }
           )
+
+          text = response.task.artifacts
+            &.flat_map(&:parts)
+            &.filter_map(&:text)
+            &.join("\n")
+            &.strip
+
+          if text != "HEARTBEAT_OK"
+            Console.info(self) { "Heartbeat produced output, notifying #{env.notify_user}" }
+
+            Faraday.post(env.notify_url) do |req|
+              req.headers["content-type"] = "application/json"
+              req.body = JSON.generate(text: text, user: env.notify_user)
+            end
+          else
+            Console.info(self) { "Heartbeat OK" }
+          end
         rescue => error
           Console.error(self) { "Heartbeat send failed: #{error.message}" }
         end
@@ -63,6 +84,10 @@ service "heartbeat" do
   interval 30 # seconds
 
   a2a_url "http://0.0.0.0:4000"
+
+  notify_url "http://localhost:5000/_heartbeat/notify"
+
+  notify_user "@demo:localhost"
 
   soul_path {
     File.expand_path("SOUL.md", root)

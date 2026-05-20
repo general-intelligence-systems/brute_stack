@@ -116,7 +116,36 @@ OpenTelemetry::SDK.configure do |c|
   c.service_name = ENV.fetch("OTEL_SERVICE_NAME", "agent-#{AGENT_NAME}") + "-appservice"
 end
 
+heartbeat_handler = ->(env) {
+  body    = Rack::Request.new(env).body.read
+  payload = JSON.parse(body)
+  text    = payload["text"]
+  user    = payload["user"]
+
+  Console.info(self) { "Heartbeat notify: sending message to #{user}" }
+
+  # Find the DM room with the target user
+  joined = matrix_bot.client.api.joined_rooms.get
+  room_id = joined["joined_rooms"]&.find do |rid|
+    members = matrix_bot.client.get("/_matrix/client/v3/rooms/#{rid}/members")
+    members["chunk"]&.any? { |m| m["state_key"] == user }
+  end
+
+  if room_id
+    matrix_bot.client.send_notice(room_id, text)
+    Console.info(self) { "Heartbeat message sent to #{user} in #{room_id}" }
+  else
+    Console.error(self) { "Heartbeat notify: no room found with #{user}" }
+  end
+
+  [200, { "content-type" => "application/json" }, ['{"ok":true}']]
+}
+
 app = Rack::Builder.new do
+  map "/_heartbeat/notify" do
+    run heartbeat_handler
+  end
+
   map "/_a2a/push" do
     run push_handler
   end

@@ -11,6 +11,7 @@ require "console"
 require "securerandom"
 require "yaml"
 require "async/semaphore"
+require "fileutils"
 require_relative "_common/steering_check"
 
 agent_card = YAML.safe_load_file(File.join(__dir__, "agent_card.yml"))
@@ -22,6 +23,7 @@ Brute.config.ollama_api_base = ENV.fetch("OLLAMA_API_BASE", "http://localhost:11
 RubyLLM.models.refresh!
 
 LOCK = Async::Semaphore.new(1)
+HEARTBEAT_LOCK = Async::Semaphore.new(1)
 STEERING_QUEUE = {}
 RUNNING = {}
 
@@ -56,6 +58,7 @@ agent = A2A::Agent.new do
         end
   
         Brute::Session.new(path: "/app/sessions/#{context_id}").then do |session|
+          session.user(text) if context_id == "heartbeat"
           llm.call(session)
 
           session.last.content
@@ -71,7 +74,7 @@ agent = A2A::Agent.new do
               state: "TASK_STATE_COMPLETED",
               timestamp: Time.now.utc.iso8601(3),
             },
-            artifacts: artifact && artifact != "HEARTBEAT_OK" && [
+            artifacts: [
               {
                 artifactId: SecureRandom.uuid,
                 name: context_id == "heartbeat" ? "heartbeat-response" : "brute-response",
@@ -123,14 +126,19 @@ agent = A2A::Agent.new do
       }
 
       if context_id == "heartbeat"
-        if RUNNING.any?
-          heartbeat_completed_response.call("HEARTBEAT_OK")
-        else
-          begin
-            heartbeat_completed_response.call(run_llm.call)
-          rescue => error
-            Console.error(self, error)
-            heartbeat_failed_response.call(error)
+        HEARTBEAT_LOCK.acquire do
+          if RUNNING.any?
+            heartbeat_completed_response.call("HEARTBEAT_OK")
+          else
+            FileUtils.rm_f("/app/sessions/heartbeat")
+            begin
+              heartbeat_completed_response.call(run_llm.call)
+            rescue => error
+              Console.error(self, error)
+              heartbeat_failed_response.call(error)
+            ensure
+              FileUtils.rm_f("/app/sessions/heartbeat")
+            end
           end
         end
       else
