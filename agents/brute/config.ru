@@ -74,7 +74,7 @@ agent = A2A::Agent.new do
             artifacts: artifact && artifact != "HEARTBEAT_OK" && [
               {
                 artifactId: SecureRandom.uuid,
-                name: heartbeat ? "heartbeat-response" : "brute-response",
+                name: context_id == "heartbeat" ? "heartbeat-response" : "brute-response",
                 parts: [{ text: artifact }],
               }
             ],
