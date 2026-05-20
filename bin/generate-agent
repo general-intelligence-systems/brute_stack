@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+USAGE=$(cat <<'EOF'
+Usage:
+  bin/generate-agent <name>
+EOF
+)
+
+if [ -z "${1:-}" ]; then
+  echo "$USAGE" >&2
+  exit 1
+fi
+
+exec bundle exec rake "generate:agent[$1]"
