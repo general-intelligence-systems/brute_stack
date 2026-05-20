@@ -11,28 +11,7 @@ require "console"
 require "securerandom"
 require "yaml"
 require "async/semaphore"
-
-class SteeringCheck
-  def initialize(app, queue:, context_id:, lock:)
-    @app = app
-    @queue = queue
-    @context_id = context_id
-    @lock = lock
-  end
-
-  def call(env)
-    @lock.acquire do
-      queue  = @queue[@context_id] || []
-      length = @queue[@context_id]&.length || 0
-
-      queue.shift(length).each do |text|
-        env[:messages].user(text)
-      end
-    end
-
-    @app.call(env)
-  end
-end
+require_relative "_common/steering_check"
 
 agent_card = YAML.safe_load_file(File.join(__dir__, "agent_card.yml"))
 
@@ -61,7 +40,65 @@ agent = A2A::Agent.new do
 
       push_url = request.configuration.task_push_notification_config.url
 
-      push_notification_callback = -> (context_id:, task_id:, state:, artifact: nil, error: nil) {
+      run_llm = -> {
+        llm = Brute::Agent.new(
+          provider: :ollama,
+          model:    "qwen2.5:0.5b",
+          tools:    [],
+        ) do
+          use Brute::Middleware::SystemPrompt
+          use SteeringCheck,
+            queue: STEERING_QUEUE,
+            context_id: context_id,
+            lock: LOCK
+  
+          run Brute::Middleware::LLMCall.new
+        end
+  
+        Brute::Session.new(path: "/app/sessions/#{context_id}").then do |session|
+          llm.call(session)
+
+          session.last.content
+        end
+      }
+
+      heartbeat_completed_response = -> (artifact) {
+        A2A::Schema["Send Message Response"].new(
+          task: {
+            id:         task_id,
+            context_id: context_id,
+            status: {
+              state: "TASK_STATE_COMPLETED",
+              timestamp: Time.now.utc.iso8601(3),
+            },
+            artifacts: artifact && artifact != "HEARTBEAT_OK" && [
+              {
+                artifactId: SecureRandom.uuid,
+                name: heartbeat ? "heartbeat-response" : "brute-response",
+                parts: [{ text: artifact }],
+              }
+            ],
+          }.compact,
+        )
+      }
+
+      heartbeat_failed_response = -> (artifact) {
+        A2A::Schema["Send Message Response"].new(
+          task: {
+            id:         task_id,
+            context_id: context_id,
+            status: {
+              state: "TASK_STATE_FAILED",
+              timestamp: Time.now.utc.iso8601(3),
+            },
+            metadata: {
+              error: error.message,
+            },
+          },
+        )
+      }
+
+      push_notification_callback = -> (state:, artifact: nil, error: nil) {
         Faraday.post(push_url) do |req|
           req.headers["content-type"] = "application/json"
           req.body = JSON.generate(
@@ -85,62 +122,55 @@ agent = A2A::Agent.new do
         end
       }
 
-      LOCK.acquire do
-        STEERING_QUEUE[context_id] ||= []
-        STEERING_QUEUE[context_id] << text
-      
-        RUNNING[context_id] ||= Async do
+      if context_id == "heartbeat"
+        if RUNNING.any?
+          heartbeat_completed_response.call("HEARTBEAT_OK")
+        else
           begin
-            llm = Brute::Agent.new(
-              provider: :ollama,
-              model:    "qwen2.5:0.5b",
-              tools:    [],
-            ) do
-              use Brute::Middleware::SystemPrompt
-              use SteeringCheck,
-                queue: STEERING_QUEUE,
-                context_id: context_id,
-                lock: LOCK
-      
-              run Brute::Middleware::LLMCall.new
-            end
-      
-            Brute::Session.new(path: "/app/sessions/#{context_id}").then do |session|
-              llm.call(session)
-      
+            heartbeat_completed_response.call(run_llm.call)
+          rescue => error
+            Console.error(self, error)
+            heartbeat_failed_response.call(error)
+          end
+        end
+      else
+        LOCK.acquire do
+          STEERING_QUEUE[context_id] ||= []
+          STEERING_QUEUE[context_id] << text
+        
+          RUNNING[context_id] ||= Async do
+            begin
+              artifact = run_llm.call
+
               push_notification_callback.call(
-                context_id: context_id,
-                task_id: task_id,
                 state: "TASK_STATE_COMPLETED",
                 artifact: session.last.content,
               )
-            end
-          rescue => error
-            push_notification_callback.call(
-              context_id: context_id,
-              task_id: task_id,
-              state: "TASK_STATE_FAILED",
-              error: error.message,
-            )
-          ensure
-            LOCK.acquire do
-              RUNNING.delete(context_id)
-              STEERING_QUEUE.delete(context_id)
+            rescue => error
+              push_notification_callback.call(
+                state: "TASK_STATE_FAILED",
+                error: error.message,
+              )
+            ensure
+              LOCK.acquire do
+                RUNNING.delete(context_id)
+                STEERING_QUEUE.delete(context_id)
+              end
             end
           end
         end
-      end
 
-      A2A::Schema["Send Message Response"].new(
-        task: {
-          id:         task_id,
-          context_id: context_id,
-          status: {
-            state: "TASK_STATE_SUBMITTED",
-            timestamp: Time.now.utc.iso8601(3)
-          },
-        }
-      )
+        A2A::Schema["Send Message Response"].new(
+          task: {
+            id:         task_id,
+            context_id: context_id,
+            status: {
+              state: "TASK_STATE_SUBMITTED",
+              timestamp: Time.now.utc.iso8601(3)
+            },
+          }
+        )
+      end
     }
   end
 end

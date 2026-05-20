@@ -32,7 +32,7 @@ There is no test suite, linter, or formatter wired up — don't invent commands 
 
 ### Per-agent process model
 
-Each agent (`agents/brute`, `agents/echo`) is a Ruby app launched by **Falcon** via `_common/falcon.rb` (symlinked / copied into each image). Falcon's `Async::Service::Supervisor` runs three sibling services in one container:
+Each agent (`agents/brute`, `agents/echo`, `agents/chat`) is a Ruby app launched by **Falcon** via a per-agent `service.rb` file. This file loads the shared `_common/falcon.rb` (which defines the three core services) and optionally loads `_common/heartbeat.rb` to add a periodic heartbeat service. Falcon's `Async::Service::Supervisor` runs the declared services in one container:
 
 1. **`agent2agent`** (`:4000`) — Rack app from the agent's `config.ru`. Implements the A2A protocol (`A2A::Agent` + `A2A::Server`) and is what actually talks to the LLM.
 2. **`matrix-appservice`** (`:5000`) — Rack app from `_common/appservice.ru`. Runs an `Async::Matrix::ApplicationService` bot that:
@@ -59,11 +59,11 @@ Synapse loads two appservice configs at `/data/appservices/{brute,echo}.yml` (se
 - `as_token` / `hs_token` that **must match exactly** the values in `docker-compose.yml`'s env for that agent,
 - a `users.regex` that grants the agent exclusive control of `@<name>:localhost`.
 
-If you add a new agent: copy `agents/echo` as a template, add a matching `docker/synapse/appservices/<name>.yml` (regenerate both tokens), wire it into `homeserver.yaml`'s `app_service_config_files`, and add a service to `docker-compose.yml`. `_common/registration.yaml.erb` is the template these YAMLs are derived from — currently checked in pre-rendered.
+If you add a new agent: copy `agents/brute` as a template, create a `service.rb` that loads `_common/falcon.rb` and `_common/heartbeat.rb`, add a matching `docker/synapse/appservices/<name>.yml` (regenerate both tokens), wire it into `homeserver.yaml`'s `app_service_config_files`, and add a service to `docker-compose.yml`. `_common/registration.yaml.erb` is the template these YAMLs are derived from — currently checked in pre-rendered.
 
 ### `_common/` is copy-shared, not gem-shared
 
-The agent Dockerfiles literally `COPY _common/falcon.rb _common/appservice.ru _common/health_monitor.rb ./` into each image's `/app`. There's no shared gem and no symlink at runtime — edits to `_common/` only land in an agent's image after a rebuild of that agent. Rebuild both agents when changing `_common/`.
+The agent Dockerfiles literally `COPY _common ./_common` into each image's `/app`. There's no shared gem and no symlink at runtime — edits to `_common/` only land in an agent's image after a rebuild of that agent. Rebuild all agents when changing `_common/`.
 
 ## Local-dev secrets
 

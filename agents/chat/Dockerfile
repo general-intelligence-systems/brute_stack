@@ -30,4 +30,4 @@ COPY --from=build /usr/local/bin /usr/local/bin
 COPY _common ./_common
 COPY chat/ ./
 
-CMD ["bundle", "exec", "falcon", "host", "_common/falcon.rb"]
+CMD ["bundle", "exec", "falcon", "host", "service.rb"]
