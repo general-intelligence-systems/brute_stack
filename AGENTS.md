@@ -14,6 +14,8 @@ docker compose logs -f brute    # follow one service
 docker compose down -v          # full reset (drops the brute-sessions and ollama-data volumes)
 ```
 
+If changes aren't persisting to the images then sometimes you need to run `docker compose build --no-cache`.
+
 The web UI is at `https://localhost/` (self-signed cert in `docker/proxy/certs/`). Synapse listens on 8008, Ollama on 11434. Each agent exposes 3 ports: A2A server (4000/4001), Matrix appservice (5000/5001), and health endpoints (8080/8081). Brute also persists conversation sessions to the `brute-sessions` named volume at `/app/sessions/<context_id>`.
 
 ## Dev shell (Ruby work)
