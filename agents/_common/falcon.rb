@@ -18,7 +18,7 @@ service "matrix-appservice" do
   include Async::Service::Supervisor::Supervised
 
   rackup_path do
-    File.expand_path("appservice.ru", root)
+    File.expand_path("_common/appservice.ru", root)
   end
 
   endpoint do

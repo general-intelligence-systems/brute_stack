@@ -1,3 +1,6 @@
+# Build context is ./agents (one level up), not this directory.
+# docker build -f agents/echo/Dockerfile agents/
+
 FROM ghcr.io/ruby/ruby:latest AS build
 
 RUN apt-get update -qq && \
@@ -24,7 +27,7 @@ WORKDIR /app
 
 COPY --from=build /usr/local/lib/ruby /usr/local/lib/ruby
 COPY --from=build /usr/local/bin /usr/local/bin
-COPY _common/falcon.rb _common/appservice.ru _common/health_monitor.rb ./
+COPY _common ./_common
 COPY echo/ ./
 
-CMD ["bundle", "exec", "falcon", "host"]
+CMD ["bundle", "exec", "falcon", "host", "_common/falcon.rb"]
