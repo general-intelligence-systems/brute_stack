@@ -82,6 +82,31 @@ services:
       - 5001:5000
       - 8081:8080
 
+
+  chat:
+    build:
+      context: ./agents
+      dockerfile: chat/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      synapse:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+    environment:
+      AGENT_NAME: chat
+      AS_TOKEN: "4f5a23026073ffa4e7cb847f8691e1d87968bebf8f452bb7010779e8e08351c5"
+      HS_TOKEN: "2e6dc5846d07cfdd5acadb992440d252e9c63bb6a3734ee2aefbc064bda5ffcc"
+      HOMESERVER_ADDRESS: "http://synapse:8008"
+      HOMESERVER_DOMAIN: "localhost"
+      OLLAMA_API_BASE: "http://ollama:11434/v1"
+    volumes:
+      - chat-sessions:/app/sessions
+    ports:
+      - 4002:4000
+      - 5002:5000
+      - 8082:8080
+
   bootstrap:
     build: ./docker/bootstrap
     restart: "no"
@@ -92,17 +117,20 @@ services:
         condition: service_started
       echo:
         condition: service_started
+      chat:
+        condition: service_started
     environment:
       SYNAPSE_URL: "http://synapse:8008"
       REGISTRATION_SHARED_SECRET: "3pM2moO;nASlR12gSSbcVBCbxO9AFuFubCtnscHkt9xU1#G~R+"
       HOMESERVER_DOMAIN: "localhost"
       DEMO_USER: "demo"
       DEMO_PASS: "demo"
-      DEMO_AGENTS: "brute echo"
+      DEMO_AGENTS: "brute echo chat"
     volumes:
       - bootstrap-state:/state
 
 volumes:
+  chat-sessions:
   ollama-data:
   brute-sessions:
   bootstrap-state:

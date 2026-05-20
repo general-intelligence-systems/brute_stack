@@ -34,3 +34,4 @@ public_baseurl: "https://localhost/"
 app_service_config_files:
   - /data/appservices/brute.yml
   - /data/appservices/echo.yml
+  - /data/appservices/chat.yml

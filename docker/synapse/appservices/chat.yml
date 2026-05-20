@@ -1,0 +1,13 @@
+id: agent-chat
+url: "http://chat:5000"
+as_token: "4f5a23026073ffa4e7cb847f8691e1d87968bebf8f452bb7010779e8e08351c5"
+hs_token: "2e6dc5846d07cfdd5acadb992440d252e9c63bb6a3734ee2aefbc064bda5ffcc"
+sender_localpart: chat
+namespaces:
+  users:
+    - exclusive: true
+      regex: "@chat:localhost"
+  rooms: []
+  aliases: []
+rate_limited: false
+push_ephemeral: false

@@ -26,11 +26,9 @@ namespace :generate do
     Dir.glob(File.join(TEMPLATE_DIR, "**", "*"), File::FNM_DOTMATCH).sort.each do |src|
       next if File.directory?(src)
 
-      # Map template path to destination path, replacing AGENT_NAME placeholder
       rel  = src.sub("#{TEMPLATE_DIR}/", "")
       dest = File.join(ROOT, rel.gsub(PLACEHOLDER, name))
 
-      # Strip .erb suffix for rendered files
       is_erb = dest.end_with?(".erb")
       dest   = dest.chomp(".erb") if is_erb
 
@@ -100,35 +98,16 @@ namespace :generate do
       "",
     ].join("\n")
 
-    # Insert new service before bootstrap
     compose.sub!(/^(  bootstrap:)/, "#{service_block}\n  bootstrap:")
 
-    # Add to bootstrap depends_on
     compose.sub!(/(  bootstrap:.*?depends_on:\n(?:.*?condition:.*?\n)*)/m) do |match|
       match + "      #{name}:\n        condition: service_started\n"
     end
 
-    # Append to DEMO_AGENTS
     compose.sub!(/DEMO_AGENTS: "(.*?)"/) { "DEMO_AGENTS: \"#{$1} #{name}\"" }
 
-    # Add named volume
     compose.sub!(/^(volumes:\n)/) { "#{$1}  #{name}-sessions:\n" }
 
     File.write(compose_path, compose)
-
-    # -- Done ----------------------------------------------------------------
-
-    puts "Agent '#{name}' created!"
-    puts ""
-    puts "  agents/#{name}/                          — agent source"
-    puts "  docker/synapse/appservices/#{name}.yml   — appservice registration"
-    puts "  docker-compose.yml                       — service + bootstrap updated"
-    puts "  docker/synapse/homeserver.yaml           — appservice registered"
-    puts ""
-    puts "  AS_TOKEN: #{as_token}"
-    puts "  HS_TOKEN: #{hs_token}"
-    puts "  Ports:    #{next_a2a}:4000  #{next_app}:5000  #{next_health}:8080"
-    puts ""
-    puts "Next: edit agents/#{name}/config.ru, then docker compose up --build"
   end
 end
