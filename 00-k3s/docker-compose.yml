@@ -1,0 +1,46 @@
+services:
+  k3s:
+    image: rancher/k3s:latest
+    command: server --tls-san k3s
+    privileged: true
+    restart: unless-stopped
+    tmpfs:
+      - /run
+      - /var/run
+    environment:
+      K3S_KUBECONFIG_OUTPUT: /output/kubeconfig.yaml
+      K3S_KUBECONFIG_MODE: "666"
+    volumes:
+      - kubeconfig:/output
+      - k3s-server:/var/lib/rancher/k3s
+    # No host-published API port — the applier reaches the API over the compose network
+    # (k3s:6443), and host kubectl can go via `docker compose exec k3s k3s kubectl`.
+    # (6443 is typically already bound by a host cluster.)
+    ports:
+      - 80:80         # Traefik ingress (HTTP)
+      - 443:443       # Traefik ingress (HTTPS)
+    healthcheck:
+      test: ["CMD-SHELL", "kubectl get --raw=/readyz >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+
+  # One-shot: renders the Ruby manifests to YAML and applies them, then exits.
+  # Re-run with: docker compose up applier
+  applier:
+    build:
+      context: .
+      dockerfile: applier/Dockerfile
+    restart: "no"
+    depends_on:
+      k3s:
+        condition: service_healthy
+    environment:
+      KUBECONFIG: /output/kubeconfig.yaml
+    volumes:
+      - kubeconfig:/output
+
+volumes:
+  kubeconfig:
+  k3s-server:

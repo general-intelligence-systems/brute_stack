@@ -1,0 +1,86 @@
+services:
+  synapse:
+    build: ./docker/synapse
+    restart: unless-stopped
+    environment:
+      SYNAPSE_CONFIG_PATH: /data/homeserver.yaml
+    ports:
+      - 8008:8008
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fSs http://localhost:8008/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  fluffychat:
+    build: ./docker/fluffychat
+    restart: unless-stopped
+    depends_on:
+      synapse:
+        condition: service_healthy
+
+  proxy:
+    build: ./docker/proxy
+    restart: unless-stopped
+    depends_on:
+      synapse:
+        condition: service_healthy
+      fluffychat:
+        condition: service_started
+    ports:
+      - 443:443
+
+  ollama:
+    build: ./docker/ollama
+    restart: unless-stopped
+    volumes:
+      - ollama-data:/root/.ollama
+    ports:
+      - 11434:11434
+
+  brute:
+    build:
+      context: ./agent
+    restart: unless-stopped
+    depends_on:
+      synapse:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+    environment:
+      AGENT_NAME: brute
+      AS_TOKEN: "dc7c02c16b69ad43c09113eaaca8f461b6bac41b018e96ce5a84100940988465"
+      HS_TOKEN: "7f641d9ea6752b6d8f9aa5bed25d901792f70a26f41e364c319807a4dc77cfc9"
+      HOMESERVER_ADDRESS: "http://synapse:8008"
+      HOMESERVER_DOMAIN: "localhost"
+      OLLAMA_API_BASE: "http://ollama:11434/v1"
+    volumes:
+      - brute-sessions:/app/sessions
+    ports:
+      - 4000:4000
+      - 5000:5000
+      - 8080:8080
+
+  bootstrap:
+    build: ./docker/bootstrap
+    restart: "no"
+    depends_on:
+      synapse:
+        condition: service_healthy
+      brute:
+        condition: service_started
+    environment:
+      SYNAPSE_URL: "http://synapse:8008"
+      REGISTRATION_SHARED_SECRET: "3pM2moO;nASlR12gSSbcVBCbxO9AFuFubCtnscHkt9xU1#G~R+"
+      HOMESERVER_DOMAIN: "localhost"
+      DEMO_USER: "demo"
+      DEMO_PASS: "demo"
+      DEMO_AGENTS: "brute"
+    volumes:
+      - bootstrap-state:/state
+
+volumes:
+  brute-sessions:
+  ollama-data:
+  bootstrap-state:

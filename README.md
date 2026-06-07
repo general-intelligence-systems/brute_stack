@@ -1,60 +1,50 @@
 # brute_stack
 
-## Start
+A local, self-contained Matrix + LLM agent stack, taught as a **progression of standalone
+examples**. Each numbered folder is a complete, independently runnable stack that adds one
+step of complexity over the previous one. Start at 01 and work up.
+
+| Example | What it adds | Agent |
+|---------|--------------|-------|
+| [`01-basic-echo-bot/`](01-basic-echo-bot) | The wiring: a Matrix bot that echoes you back. No LLM, synchronous replies. | `@echo:localhost` |
+| [`02-basic-chat-bot/`](02-basic-chat-bot) | A real Ollama LLM, async push responses, persistent sessions, steering queue. | `@chat:localhost` |
+| [`03-heartbeat/`](03-heartbeat) | A periodic heartbeat (`SOUL.md`) so the agent acts proactively, not just on reply. | `@brute:localhost` |
+
+## Run an example
+
+Each folder is fully self-contained — its own `docker-compose.yml`, its own `docker/`
+infra, and an `agent/` dir with the code plus its own copy of `_common/`.
 
 ```sh
-docker compose up -d
+cd 01-basic-echo-bot
+docker compose up --build
 ```
 
-## Log in
-
-Open <https://localhost>, accept the self-signed cert, and sign in:
+Then open <https://localhost>, accept the self-signed cert, and sign in:
 
 - **Username:** `@demo:localhost`
 - **Password:** `demo`
 
-Two chats are waiting: one with `@brute:localhost`, one with `@echo:localhost`.
+A DM with the example's agent is created automatically. Full reset: `docker compose down -v`.
 
-<video src="assets/setup-video.mp4" width="320" height="240" controls></video>
+> **Run only one example at a time** — they all bind the same host ports (443, 8008,
+> 11434, 4000/5000/8080).
 
-## LLM Model
+## Swapping the LLM model (examples 02 and 03)
 
-The stack ships with `qwen2.5:0.5b` pulled at build time so the first `docker compose up` just works. This is a tiny model (0.5B params) — fine for verifying the wiring but not much use for real conversation.
-
-You probably want something like `llama3.2:latest`. Pull it into the running Ollama container:
+The stack ships with `qwen2.5:0.5b` pulled at build time so the first run just works — a
+tiny model, fine for verifying the wiring but not much use for real conversation. For
+something better, pull it into the running Ollama container and point the agent at it:
 
 ```sh
 docker compose exec ollama ollama pull llama3.2
 ```
 
-Then update the model name in `agents/brute/config.ru`:
+Then change the `model:` in that example's `agent/config.ru` to `"llama3.2:latest"` and
+rebuild the agent (`docker compose up --build`).
 
-```ruby
-llm = Brute::Agent.new(
-  provider: :ollama,
-  model:    "llama3.2:latest",   # <-- change this
-  ...
-)
-```
+## How it works
 
-Rebuild brute (`docker compose up --build brute`) and you're set.
-
-## Adding a New Agent
-
-```sh
-bin/generate-agent <name>
-```
-
-Or manually:
-
-1. `cp -r ./agents/brute ./agents/<name>` - update `Dockerfile`, `config.ru`, `agent_card.yml`
-2. Generate tokens: `openssl rand -hex 32` (one for AS_TOKEN, one for HS_TOKEN)
-3. `docker/synapse/appservices/<name>.yml` - copy `brute.yml`, substitute name + tokens
-4. `docker/synapse/homeserver.yaml` - add `- /data/appservices/<name>.yml` to `app_service_config_files`
-5. `docker-compose.yml` - add service block, add to bootstrap `depends_on` + `DEMO_AGENTS`
-
-Then edit `agents/<name>/config.ru` with your logic and:
-
-```sh
-docker compose up --build
-```
+See [AGENTS.md](AGENTS.md) for the architecture: the per-agent Falcon process model
+(A2A endpoint + Matrix appservice + supervisor), the A2A ⇄ Matrix message flow, the
+steering queue, and the heartbeat.

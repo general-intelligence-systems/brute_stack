@@ -1,0 +1,71 @@
+services:
+  synapse:
+    build: ./docker/synapse
+    restart: unless-stopped
+    environment:
+      SYNAPSE_CONFIG_PATH: /data/homeserver.yaml
+    ports:
+      - 8008:8008
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fSs http://localhost:8008/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  fluffychat:
+    build: ./docker/fluffychat
+    restart: unless-stopped
+    depends_on:
+      synapse:
+        condition: service_healthy
+
+  proxy:
+    build: ./docker/proxy
+    restart: unless-stopped
+    depends_on:
+      synapse:
+        condition: service_healthy
+      fluffychat:
+        condition: service_started
+    ports:
+      - 443:443
+
+  echo:
+    build:
+      context: ./agent
+    restart: unless-stopped
+    depends_on:
+      synapse:
+        condition: service_healthy
+    environment:
+      AGENT_NAME: echo
+      AS_TOKEN: "4b6a331886e4a0ab10ccc81a49ed143d50526f0ba1e4fd7f96c0dd9f703b142f"
+      HS_TOKEN: "6e50f4b844d3bda357c1862748bd6397acac5995c3200e59a784b600e7cf85b3"
+      HOMESERVER_ADDRESS: "http://synapse:8008"
+      HOMESERVER_DOMAIN: "localhost"
+    ports:
+      - 4000:4000
+      - 5000:5000
+      - 8080:8080
+
+  bootstrap:
+    build: ./docker/bootstrap
+    restart: "no"
+    depends_on:
+      synapse:
+        condition: service_healthy
+      echo:
+        condition: service_started
+    environment:
+      SYNAPSE_URL: "http://synapse:8008"
+      REGISTRATION_SHARED_SECRET: "3pM2moO;nASlR12gSSbcVBCbxO9AFuFubCtnscHkt9xU1#G~R+"
+      HOMESERVER_DOMAIN: "localhost"
+      DEMO_USER: "demo"
+      DEMO_PASS: "demo"
+      DEMO_AGENTS: "echo"
+    volumes:
+      - bootstrap-state:/state
+
+volumes:
+  bootstrap-state:

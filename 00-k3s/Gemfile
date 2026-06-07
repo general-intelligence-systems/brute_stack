@@ -1,0 +1,9 @@
+# frozen_string_literal: true
+
+source "https://rubygems.org"
+
+gem "kube_schema", "~> 1.5"
+gem "kube_cluster", "~> 0.5"
+gem "scampi", "~> 0.1.7"
+gem "activesupport", "~> 8.1"
+gem "logger"

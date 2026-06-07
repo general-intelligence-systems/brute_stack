@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v2.0.0] - 2026-06-07
+
+### Changed
+- **Restructured the repo into a progression of standalone examples.** The single monolithic stack (one `docker-compose.yml` running all three agents off a shared `agents/_common/`) is replaced by three numbered, independently runnable folders that get progressively more complex:
+  - `01-basic-echo-bot/` — the echo agent: Matrix + A2A wiring only, synchronous replies, no LLM.
+  - `02-basic-chat-bot/` — the chat agent: Ollama LLM, async push-notification responses, persistent `Brute::Session` history, and the per-room steering queue.
+  - `03-heartbeat/` — the brute agent: adds the periodic heartbeat (`SOUL.md` + `_common/heartbeat.rb`) and `/_heartbeat/notify` relay on top of the chat behaviour.
+- Each folder is fully self-contained: its own `docker-compose.yml`, its own copy of the `docker/` infra (synapse, fluffychat, proxy, bootstrap, and ollama for 02/03), and an `agent/` dir holding the agent code plus its own inlined copy of `_common/`. Only the files each example needs are included, and `_common/appservice.ru` carries the `/_heartbeat/notify` handler only in `03-heartbeat`.
+- Examples run one at a time on the standard ports (443, 8008, 11434, 4000/5000/8080) — the old `4001/4002` / `5001/5002` port offsets are gone.
+- Agent Dockerfiles now build from a self-contained context (`./agent`) instead of the shared `./agents` context.
+- `README.md`, `AGENTS.md`, and `CLAUDE.md` rewritten for the per-folder layout; each example has its own `README.md` explaining the concept it introduces.
+
+### Removed
+- The monolithic root `docker-compose.yml`, the shared `agents/` tree, and the shared `docker/` directory.
+- The agent generator (`bin/generate-agent`, `Rakefile`, `template/`, root `Gemfile`/`Gemfile.lock`), which patched the now-removed monolithic compose/homeserver files.
+
 ## [v1.1.0] - 2026-05-20
 
 ### Added
@@ -39,5 +55,6 @@ All notable changes to this project will be documented in this file.
 - `AGENTS.md` and `README.md` documentation
 - Setup video walkthrough
 
+[v2.0.0]: https://github.com/general-intelligence-systems/brute_stack/compare/v1.1.0...v2.0.0
 [v1.1.0]: https://github.com/general-intelligence-systems/brute_stack/compare/v1.0.0...v1.1.0
 [v1.0.0]: https://github.com/general-intelligence-systems/brute_stack/releases/tag/v1.0.0
