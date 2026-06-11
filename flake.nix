@@ -29,7 +29,7 @@
           ];
 
           shellHook = ''
-            export GEM_HOME="$PWD/.gem"
+            export GEM_HOME="$HOME/.gem"
             export GEM_PATH="$GEM_HOME"
             export PATH="$GEM_HOME/bin:$PATH"
             export BUNDLE_PATH="$GEM_HOME"
